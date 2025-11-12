@@ -161,18 +161,27 @@ scene("campus", () => {
     // 키보드 입력
     onUpdate(() => {
         const speed = player.speed;
+        let moveX = 0;
+        let moveY = 0;
 
+        // 입력 방향 수집
         if (isKeyDown("w") || isKeyDown("up")) {
-            player.move(0, -speed);
+            moveY -= 1;
         }
         if (isKeyDown("s") || isKeyDown("down")) {
-            player.move(0, speed);
+            moveY += 1;
         }
         if (isKeyDown("a") || isKeyDown("left")) {
-            player.move(-speed, 0);
+            moveX -= 1;
         }
         if (isKeyDown("d") || isKeyDown("right")) {
-            player.move(speed, 0);
+            moveX += 1;
+        }
+
+        // 벡터 정규화 (대각선 이동 속도 보정)
+        if (moveX !== 0 || moveY !== 0) {
+            const moveVec = vec2(moveX, moveY).unit();
+            player.move(moveVec.scale(speed));
         }
 
         // z-index 업데이트
