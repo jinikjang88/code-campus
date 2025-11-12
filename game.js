@@ -542,6 +542,9 @@ scene("classroom", (data) => {
     const CAM_ZOOM = 2;
     camScale(CAM_ZOOM);
 
+    // 카메라 위치 중앙으로 리셋
+    camPos(width() / 2 / CAM_ZOOM, height() / 2 / CAM_ZOOM);
+
     const course = data.course || "backend";
 
     // 배경
@@ -739,6 +742,9 @@ scene("classroom", (data) => {
 scene("minigame", (data) => {
     const CAM_ZOOM = 2;
     camScale(CAM_ZOOM);
+
+    // 카메라 위치 중앙으로 리셋
+    camPos(width() / 2 / CAM_ZOOM, height() / 2 / CAM_ZOOM);
 
     const course = data.course || "backend";
     const curriculumId = data.curriculumId || "unknown";
