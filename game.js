@@ -62,7 +62,7 @@ scene("campus", () => {
     });
 
     // 건물 생성 함수
-    function createBuilding(x, y, width, height, col, label) {
+    function createBuilding(x, y, width, height, col, label, buildingId) {
         // 건물 그림자
         add([
             rect(width, height),
@@ -83,6 +83,10 @@ scene("campus", () => {
             anchor("center"),
             z(y),
             "building",
+            {
+                buildingId: buildingId,
+                label: label
+            }
         ]);
 
         // 건물 라벨
@@ -98,9 +102,9 @@ scene("campus", () => {
     }
 
     // 캠퍼스 건물들
-    createBuilding(200, 200, 100, 80, COLORS.frontend, "Frontend");
-    createBuilding(450, 300, 100, 80, COLORS.backend, "Backend");
-    createBuilding(650, 200, 100, 80, COLORS.database, "Database");
+    createBuilding(200, 200, 100, 80, COLORS.frontend, "Frontend", "frontend");
+    createBuilding(450, 300, 100, 80, COLORS.backend, "Backend", "backend");
+    createBuilding(650, 200, 100, 80, COLORS.database, "Database", "database");
 
     // 플레이어 캐릭터
     const player = add([
@@ -207,14 +211,29 @@ scene("campus", () => {
         spaceHandler: null
     };
 
+    // 건물 진입 시스템
+    let nearBuilding = null;
+    let buildingUI = [];
+
     onUpdate(() => {
         const npcs = get("npc");
+        const buildings = get("building");
         nearNPC = null;
+        nearBuilding = null;
 
+        // NPC 근접 체크
         npcs.forEach(npc => {
             const dist = player.pos.dist(npc.pos);
             if (dist < 50) {
                 nearNPC = npc;
+            }
+        });
+
+        // 건물 근접 체크
+        buildings.forEach(building => {
+            const dist = player.pos.dist(building.pos);
+            if (dist < 70) {
+                nearBuilding = building;
             }
         });
 
@@ -226,13 +245,19 @@ scene("campus", () => {
             }
         }
 
-        // UI 정리
+        // NPC 상호작용 UI 정리
         if (!nearNPC && interactionUI.length > 0) {
             interactionUI.forEach(ui => destroy(ui));
             interactionUI = [];
         }
 
-        // UI 표시 (대화 중이 아닐 때만)
+        // 건물 진입 UI 정리
+        if (!nearBuilding && buildingUI.length > 0) {
+            buildingUI.forEach(ui => destroy(ui));
+            buildingUI = [];
+        }
+
+        // NPC 상호작용 UI 표시 (대화 중이 아닐 때만)
         if (nearNPC && interactionUI.length === 0 && !currentDialogue.active) {
             const bg = add([
                 rect(140, 25),
@@ -261,14 +286,62 @@ scene("campus", () => {
                 txt.pos = vec2(player.pos.x, player.pos.y - 40);
             });
         }
+
+        // 건물 진입 UI 표시 (NPC와 대화 중이 아닐 때만)
+        if (nearBuilding && buildingUI.length === 0 && !currentDialogue.active && !nearNPC) {
+            const bg = add([
+                rect(140, 25),
+                pos(player.pos.x, player.pos.y - 40),
+                color(100, 70, 200),
+                anchor("center"),
+                opacity(0.8),
+                z(1000),
+            ]);
+
+            const txt = add([
+                text("E - 진입하기", { size: 12 }),
+                pos(player.pos.x, player.pos.y - 40),
+                color(255, 255, 255),
+                anchor("center"),
+                z(1001),
+            ]);
+
+            buildingUI.push(bg, txt);
+
+            // UI가 플레이어 따라다니기
+            bg.onUpdate(() => {
+                bg.pos = vec2(player.pos.x, player.pos.y - 40);
+            });
+            txt.onUpdate(() => {
+                txt.pos = vec2(player.pos.x, player.pos.y - 40);
+            });
+        }
     });
 
     // E키 상호작용
     onKeyPress("e", () => {
+        // NPC 대화 우선
         if (nearNPC) {
             showDialogue(nearNPC.name);
         }
+        // 건물 진입
+        else if (nearBuilding) {
+            enterBuilding(nearBuilding.buildingId);
+        }
     });
+
+    // 건물 진입 함수
+    function enterBuilding(buildingId) {
+        if (buildingId === "backend") {
+            go("classroom", { course: "backend" });
+        } else if (buildingId === "frontend") {
+            // 향후 구현
+            debug.log("Frontend 건물은 아직 구현되지 않았습니다.");
+        } else if (buildingId === "database") {
+            // 향후 구현
+            debug.log("Database 건물은 아직 구현되지 않았습니다.");
+        }
+    }
 
     // 대화 시스템
     // 대화창 닫기 함수
@@ -462,6 +535,271 @@ scene("campus", () => {
             destroy(welcomeBox);
         });
     });
+});
+
+// 클래스룸 씬 (커리큘럼 선택)
+scene("classroom", (data) => {
+    const CAM_ZOOM = 2;
+    camScale(CAM_ZOOM);
+
+    const course = data.course || "backend";
+
+    // 배경
+    add([
+        rect(width() / CAM_ZOOM, height() / CAM_ZOOM),
+        pos(0, 0),
+        color(240, 235, 245),
+        z(-100),
+    ]);
+
+    // 클래스룸 제목
+    add([
+        text(`${course.toUpperCase()} 클래스룸`, { size: 20 }),
+        pos(width() / 2 / CAM_ZOOM, 40),
+        color(80, 80, 80),
+        anchor("center"),
+        z(100),
+    ]);
+
+    // 커리큘럼 데이터
+    const curriculums = {
+        backend: [
+            {
+                id: "api-basics",
+                title: "REST API 기초",
+                description: "HTTP 메서드와 엔드포인트 설계 학습",
+                difficulty: "⭐",
+                status: "available"
+            },
+            {
+                id: "spring-boot",
+                title: "Spring Boot 시작하기",
+                description: "의존성 주입과 컨트롤러 패턴",
+                difficulty: "⭐⭐",
+                status: "locked"
+            },
+            {
+                id: "database-integration",
+                title: "데이터베이스 연동",
+                description: "JPA와 데이터베이스 통신",
+                difficulty: "⭐⭐⭐",
+                status: "locked"
+            }
+        ]
+    };
+
+    const currentCurriculums = curriculums[course] || [];
+
+    // 커리큘럼 카드 생성
+    let selectedIndex = 0;
+    const cards = [];
+
+    currentCurriculums.forEach((curriculum, index) => {
+        const cardX = width() / 2 / CAM_ZOOM;
+        const cardY = 120 + index * 100;
+        const isLocked = curriculum.status === "locked";
+
+        // 카드 배경
+        const card = add([
+            rect(500, 80),
+            pos(cardX, cardY),
+            color(isLocked ? 180 : 255, isLocked ? 180 : 255, isLocked ? 180 : 255),
+            anchor("center"),
+            outline(3, rgb(100, 70, 200)),
+            z(10),
+            {
+                curriculumId: curriculum.id,
+                isLocked: isLocked,
+                index: index
+            }
+        ]);
+
+        // 제목
+        add([
+            text(curriculum.title, { size: 14 }),
+            pos(cardX - 230, cardY - 20),
+            color(isLocked ? 120 : 80, isLocked ? 120 : 80, isLocked ? 120 : 80),
+            anchor("left"),
+            z(11),
+        ]);
+
+        // 설명
+        add([
+            text(curriculum.description, { size: 10 }),
+            pos(cardX - 230, cardY + 5),
+            color(isLocked ? 150 : 100, isLocked ? 150 : 100, isLocked ? 150 : 100),
+            anchor("left"),
+            z(11),
+        ]);
+
+        // 난이도
+        add([
+            text(`난이도: ${curriculum.difficulty}`, { size: 10 }),
+            pos(cardX - 230, cardY + 25),
+            color(isLocked ? 150 : 120, isLocked ? 150 : 120, isLocked ? 150 : 120),
+            anchor("left"),
+            z(11),
+        ]);
+
+        // 잠금 표시
+        if (isLocked) {
+            add([
+                text("🔒", { size: 20 }),
+                pos(cardX + 220, cardY),
+                anchor("right"),
+                z(11),
+            ]);
+        } else {
+            add([
+                text("▶", { size: 16 }),
+                pos(cardX + 220, cardY),
+                color(100, 70, 200),
+                anchor("right"),
+                z(11),
+            ]);
+        }
+
+        cards.push(card);
+    });
+
+    // 선택 표시기
+    const selector = add([
+        rect(510, 90),
+        pos(width() / 2 / CAM_ZOOM, 120),
+        color(100, 70, 200),
+        anchor("center"),
+        outline(4, rgb(100, 70, 200)),
+        opacity(0.3),
+        z(9),
+    ]);
+
+    // 키보드 조작
+    onKeyPress("up", () => {
+        if (selectedIndex > 0) {
+            selectedIndex--;
+            selector.pos.y = 120 + selectedIndex * 100;
+        }
+    });
+
+    onKeyPress("down", () => {
+        if (selectedIndex < currentCurriculums.length - 1) {
+            selectedIndex++;
+            selector.pos.y = 120 + selectedIndex * 100;
+        }
+    });
+
+    onKeyPress("enter", () => {
+        const selectedCurriculum = currentCurriculums[selectedIndex];
+        if (selectedCurriculum && !selectedCurriculum.status === "locked") {
+            // 미니게임 시작
+            go("minigame", {
+                course: course,
+                curriculumId: selectedCurriculum.id
+            });
+        }
+    });
+
+    onKeyPress("e", () => {
+        const selectedCurriculum = currentCurriculums[selectedIndex];
+        if (selectedCurriculum && selectedCurriculum.status !== "locked") {
+            // 미니게임 시작
+            go("minigame", {
+                course: course,
+                curriculumId: selectedCurriculum.id
+            });
+        }
+    });
+
+    // ESC로 캠퍼스로 돌아가기
+    onKeyPress("escape", () => {
+        go("campus");
+    });
+
+    // 안내 UI
+    add([
+        rect(400, 80),
+        pos(width() / 2 / CAM_ZOOM, height() / CAM_ZOOM - 60),
+        color(255, 255, 255),
+        anchor("center"),
+        opacity(0.9),
+        outline(2, rgb(100, 100, 100)),
+        z(100),
+    ]);
+
+    add([
+        text("조작법: ↑↓ 선택 | ENTER/E 시작 | ESC 나가기", { size: 12 }),
+        pos(width() / 2 / CAM_ZOOM, height() / CAM_ZOOM - 60),
+        color(80, 80, 80),
+        anchor("center"),
+        z(101),
+    ]);
+});
+
+// 미니게임 씬 (프로토타입)
+scene("minigame", (data) => {
+    const CAM_ZOOM = 2;
+    camScale(CAM_ZOOM);
+
+    const course = data.course || "backend";
+    const curriculumId = data.curriculumId || "unknown";
+
+    // 배경
+    add([
+        rect(width() / CAM_ZOOM, height() / CAM_ZOOM),
+        pos(0, 0),
+        color(245, 245, 250),
+        z(-100),
+    ]);
+
+    // 미니게임 제목
+    add([
+        text(`미니게임: ${curriculumId}`, { size: 18 }),
+        pos(width() / 2 / CAM_ZOOM, 60),
+        color(80, 80, 80),
+        anchor("center"),
+        z(100),
+    ]);
+
+    // 프로토타입 메시지
+    add([
+        text("미니게임은 현재 개발 중입니다!", { size: 16 }),
+        pos(width() / 2 / CAM_ZOOM, height() / 2 / CAM_ZOOM),
+        color(100, 100, 100),
+        anchor("center"),
+        z(100),
+    ]);
+
+    add([
+        text("곧 재미있는 학습 게임을 즐기실 수 있습니다.", { size: 12 }),
+        pos(width() / 2 / CAM_ZOOM, height() / 2 / CAM_ZOOM + 30),
+        color(120, 120, 120),
+        anchor("center"),
+        z(100),
+    ]);
+
+    // ESC로 클래스룸으로 돌아가기
+    onKeyPress("escape", () => {
+        go("classroom", { course: course });
+    });
+
+    // 안내 UI
+    add([
+        rect(300, 50),
+        pos(width() / 2 / CAM_ZOOM, height() / CAM_ZOOM - 60),
+        color(255, 255, 255),
+        anchor("center"),
+        opacity(0.9),
+        outline(2, rgb(100, 100, 100)),
+        z(100),
+    ]);
+
+    add([
+        text("ESC - 클래스룸으로 돌아가기", { size: 12 }),
+        pos(width() / 2 / CAM_ZOOM, height() / CAM_ZOOM - 60),
+        color(80, 80, 80),
+        anchor("center"),
+        z(101),
+    ]);
 });
 
 // 게임 시작
