@@ -199,6 +199,14 @@ scene("campus", () => {
     let nearNPC = null;
     let interactionUI = [];
 
+    // 대화 상태 관리
+    let currentDialogue = {
+        active: false,
+        npc: null,
+        elements: [],
+        spaceHandler: null
+    };
+
     onUpdate(() => {
         const npcs = get("npc");
         nearNPC = null;
@@ -210,14 +218,22 @@ scene("campus", () => {
             }
         });
 
+        // 대화 중일 때 거리 체크
+        if (currentDialogue.active && currentDialogue.npc) {
+            const distToDialogueNPC = player.pos.dist(currentDialogue.npc.pos);
+            if (distToDialogueNPC >= 50) {
+                closeDialogue();
+            }
+        }
+
         // UI 정리
         if (!nearNPC && interactionUI.length > 0) {
             interactionUI.forEach(ui => destroy(ui));
             interactionUI = [];
         }
 
-        // UI 표시
-        if (nearNPC && interactionUI.length === 0) {
+        // UI 표시 (대화 중이 아닐 때만)
+        if (nearNPC && interactionUI.length === 0 && !currentDialogue.active) {
             const bg = add([
                 rect(140, 25),
                 pos(player.pos.x, player.pos.y - 40),
@@ -255,7 +271,28 @@ scene("campus", () => {
     });
 
     // 대화 시스템
+    // 대화창 닫기 함수
+    function closeDialogue() {
+        if (currentDialogue.active) {
+            currentDialogue.elements.forEach(element => {
+                if (element && element.exists()) {
+                    destroy(element);
+                }
+            });
+            if (currentDialogue.spaceHandler) {
+                currentDialogue.spaceHandler.cancel();
+            }
+            currentDialogue.active = false;
+            currentDialogue.npc = null;
+            currentDialogue.elements = [];
+            currentDialogue.spaceHandler = null;
+        }
+    }
+
     function showDialogue(npcName) {
+        // 기존 대화창이 있으면 닫기
+        closeDialogue();
+
         const dialogues = {
             "시니어 개발자": [
                 "안녕! 첫 출근 축하해.",
@@ -277,10 +314,10 @@ scene("campus", () => {
         const messages = dialogues[npcName] || ["안녕하세요!"];
         let currentMsg = 0;
 
-        // 대화 박스
+        // 대화 박스 (플레이어 위치 기반)
         const dialogBox = add([
             rect(600, 120),
-            pos(width() / 2 / CAM_ZOOM, height() / 2 / CAM_ZOOM + 150),
+            pos(player.pos.x, player.pos.y + 150),
             color(40, 40, 50),
             anchor("center"),
             opacity(0.95),
@@ -290,7 +327,7 @@ scene("campus", () => {
 
         const nameTag = add([
             text(npcName, { size: 14 }),
-            pos(width() / 2 / CAM_ZOOM - 280, height() / 2 / CAM_ZOOM + 100),
+            pos(player.pos.x - 280, player.pos.y + 100),
             color(255, 200, 100),
             anchor("left"),
             z(2001),
@@ -298,7 +335,7 @@ scene("campus", () => {
 
         const dialogText = add([
             text(messages[currentMsg], { size: 12, width: 560 }),
-            pos(width() / 2 / CAM_ZOOM - 280, height() / 2 / CAM_ZOOM + 130),
+            pos(player.pos.x - 280, player.pos.y + 130),
             color(255, 255, 255),
             anchor("left"),
             z(2001),
@@ -306,24 +343,43 @@ scene("campus", () => {
 
         const continueText = add([
             text("SPACE - 계속", { size: 10 }),
-            pos(width() / 2 / CAM_ZOOM + 270, height() / 2 / CAM_ZOOM + 200),
+            pos(player.pos.x + 270, player.pos.y + 200),
             color(200, 200, 200),
             anchor("right"),
             z(2001),
         ]);
+
+        // 플레이어를 따라다니도록 설정
+        dialogBox.onUpdate(() => {
+            dialogBox.pos = vec2(player.pos.x, player.pos.y + 150);
+        });
+
+        nameTag.onUpdate(() => {
+            nameTag.pos = vec2(player.pos.x - 280, player.pos.y + 100);
+        });
+
+        dialogText.onUpdate(() => {
+            dialogText.pos = vec2(player.pos.x - 280, player.pos.y + 130);
+        });
+
+        continueText.onUpdate(() => {
+            continueText.pos = vec2(player.pos.x + 270, player.pos.y + 200);
+        });
 
         const spaceHandler = onKeyPress("space", () => {
             currentMsg++;
             if (currentMsg < messages.length) {
                 dialogText.text = messages[currentMsg];
             } else {
-                destroy(dialogBox);
-                destroy(nameTag);
-                destroy(dialogText);
-                destroy(continueText);
-                spaceHandler.cancel();
+                closeDialogue();
             }
         });
+
+        // 현재 대화 상태 저장
+        currentDialogue.active = true;
+        currentDialogue.npc = nearNPC;
+        currentDialogue.elements = [dialogBox, nameTag, dialogText, continueText];
+        currentDialogue.spaceHandler = spaceHandler;
     }
 
     // UI - 플레이어 정보
